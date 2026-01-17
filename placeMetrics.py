@@ -1,130 +1,174 @@
 import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Placement Analytics Dashboard", layout="wide")
+st.set_page_config(
+    page_title="Placement Eligibility Checker",
+    layout="centered"
+)
 
-# ---------- STYLING ----------
-st.markdown("""
-<style>
-.stButton>button {
-    background-color: #BB86FC;
-    color: black;
-    border-radius: 8px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------- HEADER ----------
-st.image("placement1.jpg", use_container_width=True)
-st.title("📊 Smart Placement Analytics Dashboard")
-
-# ---------- SIDEBAR ----------
-st.sidebar.title("🎓 Placement Portal")
-st.sidebar.markdown("### Select Company")
-
+# -------------------------------------------------
+# DATA
+# -------------------------------------------------
 company_rules = {
-    "TCS": {"cgpa": 6.0, "backlogs": 1, "year": "Final Year"},
-    "Infosys": {"cgpa": 6.5, "backlogs": 0, "year": "Final Year"},
-    "Wipro": {"cgpa": 6.0, "backlogs": 2, "year": "Final Year"},
-    "Google": {"cgpa": 8.0, "backlogs": 0, "year": "Final Year"}
+    "TCS": {
+        "cgpa": 6.0,
+        "backlogs": 1,
+        "logo": "TCS.jpg",
+        "skills": ["Aptitude", "Basic DSA", "Communication"]
+    },
+    "Infosys": {
+        "cgpa": 6.5,
+        "backlogs": 0,
+        "logo": "Infosys.png",
+        "skills": ["Python", "DBMS", "Problem Solving"]
+    },
+    "Wipro": {
+        "cgpa": 6.0,
+        "backlogs": 2,
+        "logo": "Wipro.png",
+        "skills": ["Java", "OOPs", "SQL"]
+    },
+    "Google": {
+        "cgpa": 8.0,
+        "backlogs": 0,
+        "logo": "Google.png",
+        "skills": ["DSA", "System Design", "Competitive Programming"]
+    }
 }
 
-company_logos = {
-    "TCS": "TCS.jpg",
-    "Infosys": "Infosys.png",
-    "Wipro": "Wipro.png",
-    "Google": "download.jpg"
-}
+# -------------------------------------------------
+# SESSION STATE
+# -------------------------------------------------
+if "evaluated" not in st.session_state:
+    st.session_state.evaluated = False
+if "eligible" not in st.session_state:
+    st.session_state.eligible = None
 
-company = st.sidebar.selectbox("Company", list(company_rules.keys()))
-st.sidebar.image(company_logos[company], width=120)
+# -------------------------------------------------
+# HEADER (KEPT, COMPACT)
+# -------------------------------------------------
+st.markdown("## 🎓 Placement Eligibility Checker")
+st.caption("Check eligibility, identify gaps, and plan your next steps")
 
-st.sidebar.info("Check eligibility based on company rules")
+st.divider()
 
-# ---------- SESSION STATE ----------
-if "students" not in st.session_state:
-    st.session_state.students = []
+# -------------------------------------------------
+# INPUT FORM (VISIBLE LOGIC)
+# -------------------------------------------------
+show_full_form = (
+    not st.session_state.evaluated
+    or st.session_state.eligible is True
+)
 
-# ---------- INPUT FORM ----------
-st.subheader("➕ Add Student")
-with st.form("eligibility_form"):
-    col1, col2 = st.columns(2)
+if show_full_form:
+    st.subheader("Your Details")
 
-    with col1:
-        name = st.text_input("Student Name")
-        reg_no = st.text_input("Register Number")
-        cgpa = st.number_input("CGPA", 0.0, 10.0, step=0.1)
-
-    with col2:
-        backlogs = st.number_input("Backlogs", 0, 10)
-        year = st.selectbox("Year", ["1st Year", "2nd Year", "3rd Year", "Final Year"])
-
-    submitted = st.form_submit_button("Check Eligibility")
-
-# ---------- PROCESS ----------
-if submitted:
-    rule = company_rules[company]
-
-    if cgpa >= rule["cgpa"] and backlogs <= rule["backlogs"] and year == rule["year"]:
-        status = "Eligible"
-        st.success(f"🎉 Eligible for {company}")
-        st.image("pass.png", width=80)
-    else:
-        status = "Not Eligible"
-        st.error(f"❌ Not Eligible for {company}")
-        st.image("fail.png", width=80)
-
-    st.session_state.students.append({
-        "Name": name,
-        "Register No": reg_no,
-        "Company": company,
-        "CGPA": cgpa,
-        "Backlogs": backlogs,
-        "Year": year,
-        "Status": status
-    })
-
-# ---------- ANALYTICS ----------
-if st.session_state.students:
-
-    df = pd.DataFrame(st.session_state.students)
-
-    st.subheader("📋 Student Data")
-    st.dataframe(df)
-
-    col1, col2 = st.columns(2)
-
-    # -------- PIE CHART --------
-    eligible = df[df["Status"] == "Eligible"].shape[0]
-    not_eligible = df[df["Status"] == "Not Eligible"].shape[0]
-
-    with col1:
-        st.subheader("🥧 Eligibility Distribution")
-        fig, ax = plt.subplots()
-        ax.pie(
-            [eligible, not_eligible],
-            labels=["Eligible", "Not Eligible"],
-            autopct="%1.1f%%",
-            startangle=90
+    name = st.text_input(
+        "Your Name",
+        value=st.session_state.get("name", "")
+    )
+    cgpa = st.number_input(
+        "Current CGPA",
+        0.0, 10.0,
+        step=0.1,
+        value=st.session_state.get("cgpa", 0.0)
+    )
+    backlogs = st.number_input(
+        "Active Backlogs",
+        0, 10,
+        value=st.session_state.get("backlogs", 0)
+    )
+    company = st.selectbox(
+        "Company",
+        company_rules.keys(),
+        index=list(company_rules.keys()).index(
+            st.session_state.get("company", "TCS")
         )
-        ax.axis("equal")
-        st.pyplot(fig)
+    )
 
-    # -------- BAR CHART --------
-    with col2:
-        st.subheader("🏢 Company-wise Eligible Students")
-        company_counts = df[df["Status"] == "Eligible"]["Company"].value_counts()
-        st.bar_chart(company_counts)
+    st.image(company_rules[company]["logo"], width=120)
 
-    # -------- CGPA HISTOGRAM --------
-    st.subheader("📈 CGPA Distribution")
+    if st.button("Check Eligibility"):
+        st.session_state.name = name
+        st.session_state.cgpa = cgpa
+        st.session_state.backlogs = backlogs
+        st.session_state.company = company
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+        rule = company_rules[company]
+        st.session_state.eligible = (
+            cgpa >= rule["cgpa"]
+            and backlogs <= rule["backlogs"]
+        )
 
-    with col2:
-        fig2, ax2 = plt.subplots(figsize=(5, 3))   # smaller size
-        ax2.hist(df["CGPA"], bins=8)
-        ax2.set_xlabel("CGPA")
-        ax2.set_ylabel("Students")
-        st.pyplot(fig2)
+        st.session_state.evaluated = True
+        st.rerun()
+
+# -------------------------------------------------
+# COLLAPSED FORM (ONLY WHEN NOT ELIGIBLE)
+# -------------------------------------------------
+if st.session_state.evaluated and not st.session_state.eligible:
+    with st.expander("Edit Details", expanded=False):
+        name = st.text_input("Your Name", st.session_state.name)
+        cgpa = st.number_input("Current CGPA", 0.0, 10.0, step=0.1, value=st.session_state.cgpa)
+        backlogs = st.number_input("Active Backlogs", 0, 10, value=st.session_state.backlogs)
+        company = st.selectbox(
+            "Company",
+            company_rules.keys(),
+            index=list(company_rules.keys()).index(st.session_state.company)
+        )
+
+        st.image(company_rules[company]["logo"], width=120)
+
+        if st.button("Re-evaluate"):
+            st.session_state.name = name
+            st.session_state.cgpa = cgpa
+            st.session_state.backlogs = backlogs
+            st.session_state.company = company
+            st.session_state.evaluated = False
+            st.rerun()
+
+# -------------------------------------------------
+# RESULT SECTION
+# -------------------------------------------------
+if st.session_state.evaluated:
+    st.divider()
+
+    rule = company_rules[st.session_state.company]
+
+    if st.session_state.eligible:
+        st.success(f"✔ You are eligible for {st.session_state.company}")
+
+        st.info(
+            "You meet the eligibility criteria. "
+            "Continue strengthening your skills and preparing for interviews."
+        )
+
+    else:
+        st.warning(f"⚠ You are not eligible for {st.session_state.company}")
+
+        st.subheader("Why this didn’t work")
+
+        if st.session_state.cgpa < rule["cgpa"]:
+            st.write(f"• Minimum CGPA required: **{rule['cgpa']}**")
+        if st.session_state.backlogs > rule["backlogs"]:
+            st.write(f"• Maximum allowed backlogs: **{rule['backlogs']}**")
+
+        st.subheader("Skills to Focus On")
+        for skill in rule["skills"]:
+            st.write(f"✓ {skill}")
+
+        st.subheader("Alternative Best-Fit Companies")
+
+        alternatives = [
+            comp for comp, r in company_rules.items()
+            if st.session_state.cgpa >= r["cgpa"]
+            and st.session_state.backlogs <= r["backlogs"]
+        ]
+
+        if alternatives:
+            for comp in alternatives:
+                st.write(f"→ {comp}")
+        else:
+            st.info(
+                "No matching companies right now. "
+                "Improving CGPA and clearing backlogs will open more opportunities."
+            )
